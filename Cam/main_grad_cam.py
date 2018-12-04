@@ -4,15 +4,15 @@ import torch
 from collections import OrderedDict
 
 from PIL import Image
-from Utils.utils_gradcam import *
+from jiyi.Utils.utils_gradcam import *
 
-from Model.densenet import DenseNet
-from Model.resnet import ResNet
-from Utils.utils import *
+from jiyi.Model.densenet import DenseNet
+from jiyi.Model.resnet import ResNet
+from jiyi.Utils.utils import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--image_path', default='~/data/edit_plant_320', help='Input image path')
-parser.add_argument('--resume', default='/home/bong3/lib/robin_intern/jiyi/result/model_best.pth',
+parser.add_argument('--image_path', default='~/data/cervical_320', help='Input image path')
+parser.add_argument('--resume', default='/home/bong6/lib/robin_intern/jiyi/result/model_best.pth',
                     help='path to latest checkpoint')
 parser.add_argument('--target_index', default=None, type=int, help='Target Index. ex) None, 0, 1, etc...')
 parser.add_argument('--result', default='../result_gradcam', help='Output cam file dir name.')
@@ -23,7 +23,7 @@ parser.add_argument('--avg_pooling_width', default=10, type=int, help='average p
 parser.add_argument('--avg_pooling_height', default=10, type=int, help='average pooling height')
 parser.add_argument('--transparency', default=0.9, type=float, help='cam transparency')
 parser.add_argument('--blur_times', default=1, type=int, help='cam blur_times')
-parser.add_argument('--num_classes', default=256, type=int, help='number of classes')
+parser.add_argument('--num_classes', default=3, type=int, help='number of classes')
 parser.add_argument('--densenet', default=True, action='store_true', help='set True to use densenet')
 args = parser.parse_args()
 

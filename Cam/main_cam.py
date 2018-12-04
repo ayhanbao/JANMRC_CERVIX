@@ -1,25 +1,24 @@
 import argparse
 from collections import OrderedDict
 
+from jiyi.Model.densenet import DenseNet
+from jiyi.Model.resnet import ResNet
+from jiyi.Utils.utils import *
+from jiyi.Utils.utils_gradcam import *
 from PIL import Image
-
-from Model.densenet import DenseNet
-from Model.resnet import ResNet
-from Utils.utils import *
-from Utils.utils_gradcam import *
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--image_path', default='~/data/edit_plant_320', help='Input image path')
+parser.add_argument('--image_path', default='~/data/cervical_320', help='Input image path')
 parser.add_argument('--result', default='../result_cam', help='Output cam file dir name.')
 parser.add_argument('--image_width', default=320, type=int, help='image crop width')
 parser.add_argument('--image_height', default=320, type=int, help='image crop height')
 parser.add_argument('--channels', default=3, type=int, help='chaneels ')
-parser.add_argument('--resume', default='/home/bong3/lib/robin_intern/jiyi/result/model_best.pth')
+parser.add_argument('--resume', default='/home/bong6/lib/robin_intern/jiyi/result/model_best.pth')
 parser.add_argument('--densenet', default=True, action='store_true', help='set True to use densenet')
 parser.add_argument('--avg_pooling_width', default=10, type=int, help='average pooling width')
 parser.add_argument('--avg_pooling_height', default=10, type=int, help='average pooling height')
-parser.add_argument('--num_classes', default=256, type=int, help='number of classes')
+parser.add_argument('--num_classes', default=3, type=int, help='number of classes')
 parser.add_argument('--transparency', default=0.9, type=float, help='cam transparency')
 parser.add_argument('--blur_times', default=1, type=int, help='cam blur_times')
 args = parser.parse_args()

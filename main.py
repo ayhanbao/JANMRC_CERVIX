@@ -2,33 +2,35 @@ import argparse
 import os
 import time
 
+import numpy as np
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.nn.parallel
 import torch.optim
+import torch.tensor
 import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
-from Model.alexnet import AlexNet
-from Model.densenet import DenseNet
-from Model.resnet import ResNet
-from Model.vggnet import vgg19
-
-from Utils.utils import AverageMeter, adjust_learning_rate, save_checkpoint, accuracy, save_log, save_log_graph
+from jiyi.Model.alexnet import AlexNet
+from jiyi.Model.densenet import DenseNet
+from jiyi.Model.resnet import ResNet
+from jiyi.Model.vggnet import vgg19
+from jiyi.Utils.auc_roc import save_auroc, compute_auroc, softmax
+from jiyi.Utils.utils import AverageMeter, adjust_learning_rate, save_checkpoint, accuracy, save_log, save_log_graph,save_loss_log
 
 # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('--data', default='~/data/edit_plant_320', help='path to dataset')
-parser.add_argument('--result', default='/home/bong3/lib/robin_intern/jiyi/result', help='path to result1')
+parser.add_argument('--data', default='/home/bong6/data/cervical_320', help='path to dataset')
+parser.add_argument('--result', default='/home/bong6/lib/robin_intern/jiyi/result', help='path to result')
 parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
 parser.add_argument('--epochs', default=200, type=int, help='number of total epochs to run')
 parser.add_argument('--start_epoch', default=0, type=int, help='manual epoch number')
 parser.add_argument('--batch_size', default=8, type=int, help='mini-batch size')
-parser.add_argument('--learning_rate', default=0.001, type=float, help='initial learning rate')
+parser.add_argument('--learning_rate', default=0.0001, type=float, help='initial learning rate')
 parser.add_argument('--weight_decay', default=0.0, type=float, help='weight decay')
 parser.add_argument('--print_freq', default=10, type=int, help='print frequency')
 parser.add_argument('--evaluate', default=False, action='store_true', help='evaluate Model on validation set')
@@ -40,14 +42,19 @@ parser.add_argument('--resize_image_height', default=350, type=int, help='resize
 parser.add_argument('--global_pooling_width', default=10, type=int, help='global pooling width')
 parser.add_argument('--global_pooling_height', default=10, type=int, help='global pooling height')
 parser.add_argument('--densenet', default=True, action='store_true', help='set True to use densenet')
-parser.add_argument('--num_classes', default=256, type=int, help='set classes number')
+parser.add_argument('--num_classes', default=3, type=int, help='set classes number')
+parser.add_argument('--target_index', default=0, type=int, help='target index')
 
 args = parser.parse_args()
 
 # expand path
 args.data = os.path.expanduser(args.data)
+args.result = os.path.expanduser(args.result)
 
 best_prec1 = 0
+
+if not os.path.exists(args.result):
+    os.makedirs(args.result)
 
 
 def main(model, criterion, optimizer, train_loader, val_loader):
@@ -93,12 +100,13 @@ def main(model, criterion, optimizer, train_loader, val_loader):
             'best_prec1': best_prec1,
             'optimizer': optimizer.state_dict(),
         }, is_best, args.result)
-        #2018_11_22 yijaein add criterion
+        # 2018_11_22 yijaein add criterion
         # save logZ
         log_file = save_log(epoch, prec1, args.result,  filename='log.txt')
 
         # save graph
         save_log_graph(log_file=log_file)
+
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -122,7 +130,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         output = model(input)
         loss = criterion(output, target)
 
-        # measure accuracy and record loss
+        # measure accuracy and record lossdks
         prec1 = accuracy(output, target)
         losses.update(loss.item(), input.size(0))
         top1.update(prec1[0], input.size(0))
@@ -143,7 +151,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(epoch, i, len(train_loader), batch_time=batch_time,
                                                                   data_time=data_time, loss=losses, top1=top1))
-
+        logloss = save_loss_log(loss, epoch, args.result, filename='losslog.txt')
+        save_log_graph(log_file=logloss)
 
 def validate(val_loader, model, criterion):
     batch_time = AverageMeter()
@@ -154,6 +163,7 @@ def validate(val_loader, model, criterion):
     model.eval()
 
     with torch.no_grad():
+        target_index_output, target_index_target = list(), list()
         end = time.time()
         for i, (input, target) in enumerate(val_loader):
             input = input.cuda(non_blocking=True)
@@ -172,15 +182,25 @@ def validate(val_loader, model, criterion):
             batch_time.update(time.time() - end)
             end = time.time()
 
+            # for auroc get value from target index
+            output_cpu = output.cpu().data.numpy()
+
+            output_cpu = np.array([softmax(out)[args.target_index] for out in output_cpu])
+
+            target_index_output.extend(output_cpu.astype(np.float))
+            target_index_target.extend(np.equal(target.cpu().data.numpy(), args.target_index).astype(np.int))
+            # --------------------------------------
+
             if i % args.print_freq == 0:
                 print('Test: [{0}/{1}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                       'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(i, len(val_loader), batch_time=batch_time,
                                                                       loss=losses, top1=top1))
+        auc, roc = compute_auroc(target_index_output, target_index_target)
 
         print(' * Prec@1 {top1.avg:.3f}'.format(top1=top1))
-
+        save_auroc(auc, roc, os.path.join(args.result, 'rocgraph'+ '.png'))
     return top1.avg
 
 

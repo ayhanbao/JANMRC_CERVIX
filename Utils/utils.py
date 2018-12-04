@@ -22,7 +22,8 @@ def save_checkpoint(state, is_best, result_path, checkpoint='checkpoint.pth', mo
         shutil.copyfile(os.path.join(result_path, checkpoint), os.path.join(result_path, model_best))
 
 
-def save_log(epoch, prec, result_path, criterion, filename='log1.txt', sep='\t'):
+# after dinner add -> loss value
+def save_log(epoch, prec, result_path, filename='log1.txt', sep='\t'):
     # check result1 directory exist
     if not os.path.isdir(result_path):
         os.makedirs(result_path)
@@ -32,15 +33,13 @@ def save_log(epoch, prec, result_path, criterion, filename='log1.txt', sep='\t')
         f.write(str(epoch) + sep + truncate(prec, 4) + '\n')
     return log_file
 
-
-def save_trainlog(epoch,prec, len, batch_time, data_time, losses, top1, result_path, filename='trainlog.txt', sep='\t'):
-    # check result1 directory exist
+def save_loss_log(loss, epoch, result_path, filename='losslog.txt', sep ='\t'):
     if not os.path.isdir(result_path):
         os.makedirs(result_path)
 
-    log_file = os.path.join(result_path, filename)
+    log_file = os.path.join(result_path,filename)
     with open(log_file, 'at', encoding='utf8') as f:
-        f.write(str(epoch) + sep + truncate(prec, 4) + len + batch_time + data_time + losses, + top1 + '\n')
+        f.write(str(epoch)+sep+truncate(loss, 4)+ '\n')
     return log_file
 
 

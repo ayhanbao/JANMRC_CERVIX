@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+import numpy as np
 
 
 def save_auroc(auc, roc, filename):
@@ -38,6 +39,7 @@ def compute_auroc(predict, target):
             else:
                 predict_bin = 0
 
+            #print(predict_bin, target[j])
             TP = TP + (predict_bin & target[j])
             FP = FP + (predict_bin & (not target[j]))
             FN = FN + ((not predict_bin) & target[j])
@@ -72,3 +74,7 @@ def compute_auroc(predict, target):
         AUROC = AUROC + h * w
 
     return AUROC, ROC
+
+def softmax(x):
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum()

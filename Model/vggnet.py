@@ -5,7 +5,7 @@ import torch.nn as nn
 
 class VGG(nn.Module):
 
-    def __init__(self, features, num_classes=1000):
+    def __init__(self,features, num_classes=1000):
         super(VGG, self).__init__()
         self.features = features
         self.classifier = nn.Sequential(
