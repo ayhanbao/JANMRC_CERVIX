@@ -33,7 +33,7 @@ def save_log(epoch, prec, result_path, filename='log1.txt', sep='\t'):
         f.write(str(epoch) + sep + truncate(prec, 4) + '\n')
     return log_file
 
-def save_loss_log(loss, epoch, result_path, filename='losslog.txt', sep ='\t'):
+def save_loss_log(epoch,loss, result_path, filename='losslog.txt', sep ='\t'):
     if not os.path.isdir(result_path):
         os.makedirs(result_path)
 
@@ -150,3 +150,9 @@ def preprocess_image(img, channels):
     # convert to tensor
     input = Variable(preprocessed_img, requires_grad=True)
     return input
+
+def adjust_learning_rate(lr, optimizer, epoch, decay_epoch=30):
+    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+    lr = lr * (0.1 ** (epoch // decay_epoch))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr

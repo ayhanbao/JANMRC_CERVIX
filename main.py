@@ -13,12 +13,12 @@ import torch.utils.data.distributed
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
-from jiyi.Model.alexnet import AlexNet
-from jiyi.Model.densenet import DenseNet
-from jiyi.Model.resnet import ResNet
-from jiyi.Model.vggnet import vgg19
-from jiyi.Utils.auc_roc import save_auroc, compute_auroc, softmax
-from jiyi.Utils.utils import AverageMeter, adjust_learning_rate, save_checkpoint, accuracy, save_log, save_log_graph,save_loss_log
+from Model.alexnet import AlexNet
+from Model.densenet import DenseNet
+from Model.resnet import ResNet
+from Model.vggnet import vgg19
+from Utils.auc_roc import save_auroc, compute_auroc, softmax
+from Utils.utils import AverageMeter, adjust_learning_rate, save_checkpoint, accuracy, save_log, save_log_graph,save_loss_log
 
 # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -27,10 +27,10 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--data', default='/home/bong6/data/cervical_320', help='path to dataset')
 parser.add_argument('--result', default='/home/bong6/lib/robin_intern/jiyi/result', help='path to result')
 parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
-parser.add_argument('--epochs', default=200, type=int, help='number of total epochs to run')
+parser.add_argument('--epochs', default=300, type=int, help='number of total epochs to run')
 parser.add_argument('--start_epoch', default=0, type=int, help='manual epoch number')
 parser.add_argument('--batch_size', default=8, type=int, help='mini-batch size')
-parser.add_argument('--learning_rate', default=0.0001, type=float, help='initial learning rate')
+parser.add_argument('--learning_rate', default=0.001, type=float, help='initial learning rate')
 parser.add_argument('--weight_decay', default=0.0, type=float, help='weight decay')
 parser.add_argument('--print_freq', default=10, type=int, help='print frequency')
 parser.add_argument('--evaluate', default=False, action='store_true', help='evaluate Model on validation set')
@@ -44,6 +44,7 @@ parser.add_argument('--global_pooling_height', default=10, type=int, help='globa
 parser.add_argument('--densenet', default=True, action='store_true', help='set True to use densenet')
 parser.add_argument('--num_classes', default=3, type=int, help='set classes number')
 parser.add_argument('--target_index', default=0, type=int, help='target index')
+parser.add_argument('--epoch_decay', default=70, type=int, help='learning rate decayed by 10 every N epochs')
 
 args = parser.parse_args()
 
@@ -100,12 +101,13 @@ def main(model, criterion, optimizer, train_loader, val_loader):
             'best_prec1': best_prec1,
             'optimizer': optimizer.state_dict(),
         }, is_best, args.result)
-        # 2018_11_22 yijaein add criterion
+
         # save logZ
         log_file = save_log(epoch, prec1, args.result,  filename='log.txt')
 
         # save graph
         save_log_graph(log_file=log_file)
+        adjust_learning_rate(args.learning_rate, optimizer, args.epochs, args.epoch_decay)
 
 
 
@@ -151,8 +153,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(epoch, i, len(train_loader), batch_time=batch_time,
                                                                   data_time=data_time, loss=losses, top1=top1))
-        logloss = save_loss_log(loss, epoch, args.result, filename='losslog.txt')
-        save_log_graph(log_file=logloss)
+
+    savelogloss = save_loss_log(epoch, losses.avg, args.result,filename='losslog.txt')
+    save_log_graph(log_file=savelogloss)
+
+
 
 def validate(val_loader, model, criterion):
     batch_time = AverageMeter()
@@ -197,6 +202,7 @@ def validate(val_loader, model, criterion):
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                       'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(i, len(val_loader), batch_time=batch_time,
                                                                       loss=losses, top1=top1))
+
         auc, roc = compute_auroc(target_index_output, target_index_target)
 
         print(' * Prec@1 {top1.avg:.3f}'.format(top1=top1))
@@ -251,7 +257,7 @@ if __name__ == '__main__':
         train_dataset = datasets.ImageFolder(
             traindir,
             transforms.Compose([
-                transforms.Resize((args.resize_image_height, args.resize_image_width)),
+                #transforms.Resize((args.resize_image_height, args.resize_image_width)),
                 transforms.RandomResizedCrop(args.image_width),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomVerticalFlip(),
@@ -260,8 +266,8 @@ if __name__ == '__main__':
             ]))
 
         valid_dataset = datasets.ImageFolder(valdir, transforms.Compose([
-            transforms.Resize((args.resize_image_height, args.resize_image_width)),
-            transforms.CenterCrop(args.image_width),
+            #transforms.Resize((args.resize_image_height, args.resize_image_width)),
+            #transforms.CenterCrop(args.image_width),
             transforms.ToTensor(),  # convert int(0 ~ 255) -> float(0.0 ~ 1.0)
             normalize,
         ]))
