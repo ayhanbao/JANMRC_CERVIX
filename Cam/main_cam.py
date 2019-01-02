@@ -1,10 +1,10 @@
 import argparse
 from collections import OrderedDict
 
-from jiyi.Model.densenet import DenseNet
-from jiyi.Model.resnet import ResNet
-from jiyi.Utils.utils import *
-from jiyi.Utils.utils_gradcam import *
+from Model.densenet import DenseNet
+from Model.resnet import ResNet
+from Utils.utils import *
+from Utils.utils_gradcam import *
 from PIL import Image
 
 parser = argparse.ArgumentParser()

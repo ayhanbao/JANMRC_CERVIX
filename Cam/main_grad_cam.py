@@ -4,11 +4,11 @@ import torch
 from collections import OrderedDict
 
 from PIL import Image
-from jiyi.Utils.utils_gradcam import *
+from Utils.utils_gradcam import *
 
-from jiyi.Model.densenet import DenseNet
-from jiyi.Model.resnet import ResNet
-from jiyi.Utils.utils import *
+from Model.densenet import DenseNet
+from Model.resnet import ResNet
+from Utils.utils import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--image_path', default='~/data/cervical_320', help='Input image path')
