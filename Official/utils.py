@@ -1,8 +1,9 @@
 import os
 import shutil
-
+import numpy as np
 import torch
-
+from tools.img_utils import norm_path, split_path, image_list
+import scipy.misc
 count = 0
 
 
@@ -85,17 +86,24 @@ def get_increasing_filename():
     count += 1
     return str(count) + '.png'
 
-
+#check agumentation result
 def save_tensor_image(input, filename_list=None, path='temp'):
-    import scipy.misc
 
     if not os.path.isdir(path):
         os.makedirs(path)
 
     image_list = input.cpu().data.numpy()
+
     for i, image in enumerate(image_list):
         # get filename
         filename = get_increasing_filename() if filename_list is None else filename_list[i]
 
+        #print(image.shape)
+
+        image = np.transpose(image, axes=[1, 2, 0])
+        #print(image.shape)
+        _,file_dir,_ = split_path(filename)
+
         # save image
-        scipy.misc.imsave(os.path.join(path, filename), image.squeeze())
+
+        scipy.misc.imsave(os.path.join(path, file_dir + '.png'), image.squeeze())

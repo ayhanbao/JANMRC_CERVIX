@@ -71,7 +71,8 @@ class DenseNetExtractor(BaseExtractor):
         # extract feature
         target_activations, output = self.extract_feature(x)
         output = F.relu(output, inplace=True)
-        output = F.avg_pool2d(output, kernel_size=self.model.global_pooling_size, stride=1).view(output.size(0), -1)
+
+        output = F.avg_pool2d(output, kernel_size=self.model.avg_pooling_size, stride=1).view(output.size(0), -1)
 
         output = self.classifier(output)
         return target_activations, output

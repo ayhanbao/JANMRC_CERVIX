@@ -3,8 +3,9 @@ import os
 import cv2
 
 from tools.img_utils import norm_path, split_path, image_list
-
-IMAGE_SIZE = 512
+import shutil
+import numpy as np
+IMAGE_SIZE = 256
 
 
 def resize_image(im, height=IMAGE_SIZE, width=IMAGE_SIZE):
@@ -48,23 +49,44 @@ def resize_image_file(img_path, image_size, save_path):
     # resize image
     im = resize_image(im, image_size)
 
-    # write image
+    # # extract gammma image
+    # greenpath = '/home/bong6/data/mrcnn_cer/classificationdataset_224 (copy)/train/green_type3'
+    # if np.max(im[:, :, 0]) < 60 and np.max(im[:, :, 2]) < 60:
+    #     if not os.path.exists(greenpath):
+    #         os.makedirs(greenpath)
+    #
+    #     shutil.move(img_path, greenpath)
+    # else:
+        # write image
     cv2.imwrite(save_path[:-3] + 'png', im)
 
+def rename (img_path,save_path):
+    img_path = (norm_path(img_path))
+    save_path = norm_path(save_path)
+
+    save_dir, _, _ = split_path(save_path)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # read image
+    im = cv2.imread(img_path)
+    cv2.imwrite(save_path[:-3] + 'png', im)
 
 def main(src_path, dst_path, image_size):
     try:
         for file in image_list(src_path):
             _, name, ext = split_path(file)
             save = os.path.join(dst_path, name + ext)
+            #save = os.path.join(dst_path, name+'a' + ext)
             print(save)
             resize_image_file(file, image_size, save)
+            #rename(file,save)
     except IOError:
         pass  # You can always log it to logger
 
 
 if __name__ == '__main__':
-    src_path = '/home/bong6/data/mrcnn_cer/stage1_train/mask'
-    dst_path = '/home/bong6/data/mrcnn_cer/stage1_train/mask1'
+    src_path = '//home/bong6/data/rename_data/train/Type_3'
+    dst_path = '/home/bong6/data/rename_data/train/Type_3_re'
 
     main(src_path, dst_path, IMAGE_SIZE)

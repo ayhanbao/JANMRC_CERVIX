@@ -30,3 +30,13 @@ def image_list(path, exts=['.png', '.jpg']):
             l.append(os.path.join(root, file))
 
     return l
+
+def extract_green(im,img_path,greenpath):
+    import numpy as np
+    import shutil
+
+    if np.max(im[:, :, 0]) < 60 and np.max(im[:, :, 2]) < 60:
+        if not os.path.exists(greenpath):
+            os.makedirs(greenpath)
+
+        shutil.move(img_path, greenpath)

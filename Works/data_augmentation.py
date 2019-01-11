@@ -92,11 +92,36 @@ def rotate(image, angle, center = None, scale = 1.0):
     return rotated
 
 
-def flipv(imgg):
-    img2= np.zeros([480, 640, 3], np.uint8)
-    for i in range(480):
+def random_rotate(image, max_ratio):
+    ratio = random.uniform(-max_ratio, max_ratio)
+    image = rotate(image, ratio, center=None, scale = 1.0)
 
-        img2[i,:]=imgg[480-i-1,:]
+    return image
 
-    return img2
+def random_flip(image):
+    ratio = random.randint(0,1)
+    img = cv2.flip(image, ratio)
 
+    return img
+
+#not used yet
+def randomCrop(img, width, height):
+    x = random.randint(0, img.shape[1] - width)
+    y = random.randint(0, img.shape[0] - height)
+    img = img[y:y+height, x:x+width]
+    return img
+
+#ratio must within 5
+def Random_Gausian_blur(img):
+
+    x = random.randint(0,10)
+    if x % 2 == 0:
+        x = 0
+
+    else:
+        #bgr convert rgb
+        b, g, r = cv2.split(img)
+        img = cv2.merge([r, g, b])
+        # GaussianBlur
+        img = cv2.GaussianBlur(img, (10 - x, 10 - x), 0)
+    return img

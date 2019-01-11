@@ -6,25 +6,27 @@ from collections import OrderedDict
 from PIL import Image
 from Utils.utils_gradcam import *
 
-from Model.densenet import DenseNet
+#from Model.densenet import DenseNet
+from Official.densenet import DenseNet
 from Model.resnet import ResNet
 from Utils.utils import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--image_path', default='~/data/cervical_320', help='Input image path')
-parser.add_argument('--resume', default='/home/bong6/lib/robin_intern/jiyi/result/model_best.pth',
+parser.add_argument('--image_path', default='~/data/mrcnn_cer/classificationdataset_224/test', help='Input image path')
+parser.add_argument('--resume', default='/home/bong6/lib/robin_cer/results/classification_result_224_rotate/checkpoint_99.pth',
                     help='path to latest checkpoint')
 parser.add_argument('--target_index', default=None, type=int, help='Target Index. ex) None, 0, 1, etc...')
 parser.add_argument('--result', default='../result_gradcam', help='Output cam file dir name.')
 parser.add_argument('--channels', default=3, type=int, help='select scale type rgb or gray')
-parser.add_argument('--image_width', default=320, type=int, help='image crop width')
-parser.add_argument('--image_height', default=320, type=int, help='image crop height')
-parser.add_argument('--avg_pooling_width', default=10, type=int, help='average pooling width')
-parser.add_argument('--avg_pooling_height', default=10, type=int, help='average pooling height')
-parser.add_argument('--transparency', default=0.9, type=float, help='cam transparency')
+parser.add_argument('--image_width', default=224, type=int, help='image crop width')
+parser.add_argument('--image_height', default=224, type=int, help='image crop height')
+parser.add_argument('--avg_pooling_width', default=7, type=int, help='average pooling width')
+parser.add_argument('--avg_pooling_height', default=7, type=int, help='average pooling height')
+parser.add_argument('--transparency', default=0.5, type=float, help='cam transparency')
 parser.add_argument('--blur_times', default=1, type=int, help='cam blur_times')
 parser.add_argument('--num_classes', default=3, type=int, help='number of classes')
 parser.add_argument('--densenet', default=True, action='store_true', help='set True to use densenet')
+
 args = parser.parse_args()
 
 use_cuda = torch.cuda.is_available()
@@ -56,7 +58,7 @@ def main():
     avg_pool_size = (args.avg_pooling_height, args.avg_pooling_width)
     if args.densenet:
         # create Model
-        model = DenseNet(channels=args.channels, global_pooling_size=avg_pool_size, num_classes=args.num_classes)
+        model = DenseNet(num_init_features=32, growth_rate=16, block_config=(6, 12, 24, 16), channels=args.channels, avg_pooling_size=avg_pool_size, num_classes=args.num_classes)
         model = model.cuda() if use_cuda else model
 
         # create extractor

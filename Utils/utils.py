@@ -156,3 +156,24 @@ def adjust_learning_rate(lr, optimizer, epoch, decay_epoch=30):
     lr = lr * (0.1 ** (epoch // decay_epoch))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
+#not yet
+def save_log_graph_type3_val(path, xValue, yValue):
+    save_file = os.path.join(path)
+    xValue, yValue = [],[]
+
+
+    # 3) save graph
+    #type_1
+    plt.plot(xValue, yValue, 'r', label='Type_1')
+    plt.title('label acc')
+
+    #type_2
+    plt.plot(xValue, yValue, 'g', label='Type_2')
+
+
+    #type_3
+    plt.plot(xValue, yValue, 'b', label='Type_3')
+    plt.legend()
+    plt.savefig(save_file)
+    plt.close()

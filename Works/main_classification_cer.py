@@ -7,43 +7,52 @@ import torch
 import torch.nn as nn
 import torchvision.models.densenet
 import torchvision.transforms as transforms
-from PIL import Image
 from torch.utils.data import Dataset
-
+from PIL import Image
 from Official.densenet import DenseNet
 from Official.main import main
 from Official.utils import AverageMeter
 from Official.utils import accuracy
 from Works.data_augmentation import *
 from Works.utils import compute_auroc, softmax
+from Official.utils import save_tensor_image
+from Utils.auc_roc import save_auroc
+from imgaug import augmenters as iaa
+
+import os
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('--data', default='/home/bong6/data/mrcnn_cer/classificationdataset', help='path to dataset')
+parser.add_argument('--data', default='/home/bong6/data/mrcnn_cer/classification_crop_hand_256', help='path to dataset')
 parser.add_argument('--workers', default=8, type=int, help='number of data loading workers')
-parser.add_argument('--epochs', default=150, type=int, help='number of total epochs to run')
+parser.add_argument('--epochs', default=300, type=int, help='number of total epochs to run')
 parser.add_argument('--start_epoch', default=0, type=int, help='manual epoch number')
-parser.add_argument('--batch_size', default=16, type=int, help='mini-batch size')
+parser.add_argument('--batch_size', default=64, type=int, help='mini-batch size')
 parser.add_argument('--lr', default=0.001, type=float, help='initial learning rate')
-parser.add_argument('--epoch_decay', default=40, type=int, help='learning rate decayed by 10 every N epochs')
-parser.add_argument('--weight_decay', default=0, type=float, help='weight decay')
+parser.add_argument('--epoch_decay', default=100, type=int, help='learning rate decayed by 10 every N epochs')
+parser.add_argument('--weight_decay', default=0, type=float, help='weight decay L2')
 parser.add_argument('--print_freq', default=10, type=int, help='print frequency')
 parser.add_argument('--pretrained', default=False, action='store_true', help='use pretrained model')
 parser.add_argument('--resume', default='', type=str, help='path to latest checkpoint')
 parser.add_argument('--evaluate', default=False, action='store_true', help='evaluate model on validation set')
-parser.add_argument('--seed', default=None, type=int, help='seed for initializing training')
-parser.add_argument('--result', default='/home/bong6/lib/robin_cer/results', help='path to result')
+parser.add_argument('--seed', default=None, type=int, help='seed for initializingtraining')
+parser.add_argument('--result', default='/home/bong6/lib/robin_cer/results/crop_random_9', help='path to result')
 parser.add_argument('--aspect_ratio', default=False, action='store_true', help='keep image aspect ratio')
-parser.add_argument('--resize_image_width', default=224, type=int, help='image width')
-parser.add_argument('--resize_image_height', default=224, type=int, help='image height')
+parser.add_argument('--resize_image_width', default=256, type=int, help='image width')
+parser.add_argument('--resize_image_height', default=256, type=int, help='image height')
 parser.add_argument('--image_width', default=224, type=int, help='image crop width')
 parser.add_argument('--image_height', default=224, type=int, help='image crop height')
 parser.add_argument('--avg_pooling_width', default=7, type=int, help='average pooling width')
 parser.add_argument('--avg_pooling_height', default=7, type=int, help='average pooling height')
-parser.add_argument('--channels', default=1, type=int, help='select scale type rgb or gray')
+parser.add_argument('--channels', default=3, type=int, help='select scale type rgb or gray')
 parser.add_argument('--num_classes', default=3, type=int, help='number of classes')
 parser.add_argument('--target_index', default=0, type=int, help='target index')
-parser.add_argument('--classification_result', default='', help='path for segmentation result')
-parser.add_argument('--preprocess_denoise', default=False, action='store_true', help='reduce noise of train/val image')
+parser.add_argument('--classification_result', default='/home/bong6/lib/robin_cer/results/classification_Type', help='path for segmentation result')
+parser.add_argument('--randomcrop', default=True, help='randomcrop')
+parser.add_argument('--eval_result', default='/home/bong6/data/mrcnn_cer/classification_crop_hand_256/test', help='evaluate result folder path')
+parser.add_argument('--save_tensor_image', default=False, help='check augmentation')
+parser.add_argument('--save_auroc', default=False, help='save auroc graph')
 args = parser.parse_args()
 
 args.data = os.path.expanduser(args.data)
@@ -56,18 +65,11 @@ def pil_loader(path):
         with Image.open(f) as img:
             img = img.convert('RGB') if args.channels == 3 else img.convert('L')
             out = pil_resize(img)
-
-            # denoise
-            if args.preprocess_denoise:
-                np_out = np.asarray(out)
-                np_out = cv2.fastNlMeansDenoising(np_out, None, 10, 7, 21)
-                out = Image.fromarray(np.uint8(np_out))
-
             return out
 
-
+# set resize_image_size
 def pil_resize(img):
-    # set resize_image_size
+
     resize_image_size = (args.resize_image_width, args.resize_image_height)
     if args.aspect_ratio:
         img.thumbnail(resize_image_size)
@@ -79,19 +81,16 @@ def pil_resize(img):
         out = img.resize(resize_image_size)
     return out
 
-
+ #add random_rotate and random_flip
 def train_image_loader(path):
-    out = pil_loader(path)
 
+    out = pil_loader(path)
     out = np.array(out)
-    out = random_gamma(out, min=0.5, max=1.5)
-    out = random_clahe(out, min=0, max=0.75)
-    out = random_sharpen(out, max_ratio=0.5)
-    out = rotate(out, 360, None, 1.0)
-    out = rotate(out, 180, None, 1.0)
-    out = rotate(out, 90, None, 1.0)
-    out = cv2.flip(out, 0)
-    out = cv2.flip(out, 1)
+    # out = random_rotate(out, 360) #check
+    # out = random_flip(out) #check
+
+    #random Gausian_blur
+    out = Random_Gausian_blur(out)
 
     out = Image.fromarray(np.uint8(out))
 
@@ -100,11 +99,6 @@ def train_image_loader(path):
 
 def valid_image_loader(path):
     out = pil_loader(path)
-
-    out = np.array(out)
-    out = apply_clahe(out, 0.5)
-    out = Image.fromarray(np.uint8(out))
-
     return out
 
 
@@ -141,16 +135,15 @@ class TrainDataset(Dataset):
         self.Type_2 = 1
         self.Type_3 = 2
 
-        # gathering crop_kidney and crop_non-kidney(fake) files
+        # gathering crop_image and mask files
         # (sample_path, target)
         self.Type_1_samples = [[item, self.Type_1] for item in self.getType_1Files(root)]
         self.Type_2_samples = [[item, self.Type_2] for item in self.getType_2Files(root)]
-        self.Type_3_samples = [[item,self.Type_3] for item in self.getType_3Files(root)]
+        self.Type_3_samples = [[item, self.Type_3] for item in self.getType_3Files(root)]
 
         log('Train count samples', len(self.Type_1_samples), len(self.Type_2_samples), len(self.Type_3_samples))
 
         # balance ratio
-        #self.samples = self.balanceList([self.Type_1_samples, self.Type_2_samples, self.Type_3_samples])
         self.samples = self.Type_1_samples + self.Type_2_samples + self.Type_3_samples
 
     def balanceList(self, samples_list, ratio=[1.0, 1.0, 1.0]):
@@ -233,8 +226,7 @@ class ValDataset(Dataset):
         self.Type_3 = 2
 
         if not args.evaluate:
-            # gathering crop_kidney and crop_non-kidney(fake) files
-            # (sample_path, target, need crop)
+
             self.Type_1_samples = [[item, self.Type_1] for item in self.getType_1Files(self.root)]
             self.Type_2_samples = [[item, self.Type_2] for item in self.getType_2Files(self.root)]
             self.Type_3_samples = [[item, self.Type_3] for item in self.getType_3Files(self.root)]
@@ -243,7 +235,8 @@ class ValDataset(Dataset):
             self.samples = self.Type_1_samples + self.Type_2_samples + self.Type_3_samples
 
         else:
-            self.root = '/home/bong6/data/mrcnn_cer/classificationdataset/test'
+            self.root = args.eval_result
+
             self.Type_1_samples = [[item, self.Type_1] for item in self.getType_1Files(self.root)]
             self.Type_2_samples = [[item, self.Type_2] for item in self.getType_2Files(self.root)]
             self.Type_3_samples = [[item, self.Type_3] for item in self.getType_3Files(self.root)]
@@ -254,7 +247,7 @@ class ValDataset(Dataset):
 
 
     def getType_1Files(self, path):
-        print('get kid', os.path.join(path, 'Type_1'))
+
         getType_1Files = getImagesFiles(os.path.join(path, 'Type_1'))
 
         return getType_1Files
@@ -311,6 +304,10 @@ def train_model(train_loader, model, criterion, optimizer, epoch, print_freq):
         data_time.update(time.time() - end)
         target = target.cuda(non_blocking=True)
 
+        #check agumentation
+        if args.save_tensor_image:
+            save_tensor_image(input, input_path, args.agumetation_check)
+
         # compute output
         output = model(input)
         loss = criterion(output, target)
@@ -343,7 +340,6 @@ def train_model(train_loader, model, criterion, optimizer, epoch, print_freq):
                                                                         top1=top1)
             log(message)
 
-
 def validate_model(val_loader, model, criterion, epoch, print_freq):
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -351,6 +347,7 @@ def validate_model(val_loader, model, criterion, epoch, print_freq):
     cnt_cnt_label = [0] * args.num_classes
     cnt_exact_pred = [0] * args.num_classes
 
+    dir_list = ['Type_1', 'Type_2', 'Type_3']
     # switch to evaluate mode
     model.eval()
 
@@ -396,6 +393,7 @@ def validate_model(val_loader, model, criterion, epoch, print_freq):
             # put together for acc per label
             pred_list = pred(output).cpu().numpy().squeeze()
             target_list = target.cpu().numpy().squeeze()
+
             for (p, t) in zip(pred_list, target_list):
                 cnt_cnt_label[t] += 1
                 if p == t:
@@ -403,8 +401,8 @@ def validate_model(val_loader, model, criterion, epoch, print_freq):
 
                 pred_list = pred(output).cpu().numpy().squeeze()
                 for pred_idx, pred_item in enumerate(pred_list):
-                    #???
-                    dst = os.path.join(args.classification_result, 'Type_1' if pred_item == 0 else ('Type_2' if pred_item == 1 else 'Type_3'))
+
+                    dst = os.path.join(args.classification_result, dir_list[pred_item])
 
                     if not os.path.exists(dst):
                         os.makedirs(dst)
@@ -421,9 +419,10 @@ def validate_model(val_loader, model, criterion, epoch, print_freq):
                                                                       batch_time=batch_time,
                                                                       loss=losses,
                                                                       top1=top1))
+                auc, roc = compute_auroc(target_index_output, target_index_target)
+                if args.save_auroc:
+                    save_auroc(auc, roc, os.path.join(args.result, str(epoch) + '.png'))
 
-        auc, roc = compute_auroc(target_index_output, target_index_target)
-        # save_auroc(auc, roc, os.path.join(args.result, str(epoch) + '.png'))
 
         log(' * Prec@1 {top1.avg:.3f} at Epoch {epoch:0}'.format(top1=top1, epoch=epoch))
         log(' * auc@1 {auc:.3f}'.format(auc=auc))
@@ -467,16 +466,40 @@ if __name__ == '__main__':
                          num_classes=args.num_classes,
                          channels=args.channels, avg_pooling_size=avg_pool_size)
 
-    train_transforms = transforms.Compose([transforms.RandomCrop((args.image_height, args.image_width)),
-                                           transforms.ToTensor(),
-                                           normalize,
-                                           ])
 
-    # create optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    if args.randomcrop:
+
+        train_transforms = transforms.Compose([transforms.RandomCrop((args.image_height, args.image_width)),
+                                               transforms.RandomResizedCrop(args.image_height, scale=(0.8, 1.0), ratio=(0.75, 1.3)),
+                                               transforms.ToTensor(),
+                                                normalize,
+                                               ])
+
+        val_transforms = transforms.Compose([transforms.CenterCrop((args.image_height, args.image_width)),
+                                             transforms.ToTensor(),
+                                                normalize,
+                                             ])
+
+
+    else:
+        train_transforms = transforms.Compose([transforms.Resize(args.image_height),
+                                               transforms.ToTensor(),
+                                                normalize,
+                                               ])
+
+        val_transforms = transforms.Compose([transforms.Resize(args.image_height),
+                                             transforms.ToTensor(),
+                                             normalize,
+                                             ])
+
+
+   # create optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
     # start main loop
     main(args, model, train_image_loader, valid_image_loader, normalize, optimizer,
          train_dataset=TrainDataset, valid_dataset=ValDataset,
          train_model=train_model, validate_model=validate_model,
-         train_transforms=train_transforms)
+         train_transforms=train_transforms,
+         val_transforms=val_transforms,
+         )
